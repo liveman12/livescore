@@ -7,85 +7,34 @@ button{width:100%;padding:12px;border-radius:12px;border:0;background:#00c853;co
 .tabs{display:flex;gap:8px;padding:12px}.tab{flex:1;text-align:center;padding:12px;background:#222;border-radius:14px;cursor:pointer;font-weight:600}.tab.active{background:#00c853;color:#000}
 .league-head{background:#1a1e27;padding:12px 14px;margin:16px 12px 0;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;font-weight:700;border-bottom:1px solid #333}
 .match{background:#1a1e27;margin:0 12px;padding:13px 14px;border-bottom:1px solid #2a2f3a;display:flex;gap:10px;align-items:center;cursor:pointer}.match:last-child{border-radius:0 0 14px 14px}
-.time{width:62px;font-size:12px;color:#aaa;text-align:center;line-height:1.3}.teams{flex:1}.teams div{display:flex;justify-content:space-between;padding:2px 0;font-size:15px}.score{font-weight:800;color:#00c853;min-width:42px;text-align:center}
+.time{width:68px;font-size:12px;color:#aaa;text-align:center;line-height:1.3}.teams{flex:1}.teams div{display:flex;justify-content:space-between;padding:2px 0;font-size:15px}.score{font-weight:800;color:#00c853;min-width:42px;text-align:center}
 .badge{font-size:11px;background:#333;padding:2px 7px;border-radius:10px}.badge.live{background:#ff3b30;color:#fff}
 .box{background:#1a1e27;padding:14px;border-radius:14px;margin:12px}.empty{padding:20px;text-align:center;color:#aaa}
 .detail-head{text-align:center;padding:20px 12px;background:#1a1e27;margin:12px;border-radius:14px}.detail-head h2{font-size:20px;margin:8px 0}.detail-head .sc{font-size:32px;color:#00c853;font-weight:900}
 .ev{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #333;font-size:14px}.ev b{width:38px;color:#00c853}
 table{width:100%;border-collapse:collapse}th,td{padding:9px;text-align:left;border-bottom:1px solid #333;font-size:14px}
 </style></head><body>
-<div class="header"><h2>⚽ Livescore</h2><div class="row"><input type="date" id="date"><select id="league"><option value="">All Leagues</option><option value="33973">Premier League</option><option value="140">La Liga</option><option value="135">Serie A</option><option value="78">Bundesliga</option><option value="61">Ligue 1</option><option value="2">Champions League</option></select></div><button onclick="loadFixtures()">Load Matches</button><button onclick="debugApi()" style="background:#222;color:#fff;margin-top:6px">🔍 Debug - Show What API Returns</button></div>
+<div class="header"><h2>⚽ Livescore</h2><div class="row"><input type="date" id="date"><select id="league"><option value="">All Leagues</option></select></div><button onclick="loadFixtures()">Load Matches</button></div>
 <div class="tabs"><div class="tab active" id="t-live" onclick="show('live')">Live / Fixtures</div><div class="tab" id="t-table" onclick="show('table')">Table</div><div class="tab" id="t-detail" onclick="show('detail')">Detail</div></div>
 <div id="content"><div class="empty">Loading...</div></div>
 <script>
 let matches=[], selected=null;
 document.getElementById('date').value='2026-11-25';
+function tn(t){return t?.name||t||'Team';}
+function getHome(m){return m.homeTeam||m.home_team||m.home||{};}
+function getAway(m){return m.awayTeam||m.away_team||m.away||{};}
+function getLeague(m){return m.league||m.competition||{};}
+function getStatus(m){return m.status||'Scheduled';}
+function getMinute(m){return m.minute||m.elapsed||'';}
+function getScore(m){let h=m.homeScore??m.home_score??m.score?.home; let a=m.awayScore??m.away_score??m.score?.away; if(h==null) return '-'; return h+' - '+a;}
+function isLive(st){return /live|1st|2nd|half/i.test(st);}
+function getTime(m){let d=m.date||m.kickoff||''; if(!d) return ''; try{return new Date(d).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}catch(e){return d;}}
 function show(t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));document.getElementById('t-'+t).classList.add('active');if(t==='live')render();if(t==='table')loadTable();if(t==='detail')loadDetail();}
-function fmtScore(m){let sc=m.state?.score; if(sc&&typeof sc==='object'){if(sc.current!=null) return sc.current; return (sc.home??0)+' - '+(sc.away??0);} if(sc) return String(sc); return '-';}
-function isLive(st){return /live|1st|2nd|half|extra/i.test(st);}
-function getTime(m){let d=m.date||m.startTime||''; if(!d) return ''; try{return new Date(d).toLocaleString([], {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return d;}}
-function getStatus(m){return m.state?.description||'Scheduled';}
-async function debugApi(){
-  const d=document.getElementById('date').value||'2026-11-25';
-  document.getElementById('content').innerHTML='<div class="empty">Checking API...</div>';
-  const r=await fetch(`/api?type=fixtures&date=${d}`); const txt=await r.text();
-  document.getElementById('content').innerHTML=`<div class="box"><h3>Debug - Date: ${d} - Status: ${r.status}</h3><p style="color:#aaa">Copy this screenshot send me:</p><pre style="white-space:pre-wrap;font-size:11px">${txt.slice(0,3000)}</pre></div>`;
-}
-async function loadFixtures(){
-  const d=document.getElementById('date').value||'2026-11-25';
-  document.getElementById('content').innerHTML='<div class="empty">Loading...</div>';
-  try{
-    const r=await fetch(`/api?type=fixtures&date=${d}`); const j=await r.json();
-    matches=Array.isArray(j)?j:(j.data||j.matches||j.response||[]);
-    // If API returns object with nested data like {data:{matches:[]}} try deeper
-    if(!matches.length && j.data && typeof j.data==='object' && !Array.isArray(j.data)){
-      matches=j.data.matches||j.data.fixtures||[];
-    }
-    matches.sort((a,b)=>{let la=isLive(getStatus(a))?0:1, lb=isLive(getStatus(b))?0:1; if(la!==lb) return la-lb; return new Date(a.date||0)-new Date(b.date||0);});
-    render();
-  }catch(e){document.getElementById('content').innerHTML='<div class="empty">Error: '+e.message+'<br><button onclick="debugApi()" style="background:#222;color:#fff">Debug</button></div>';}
-}
-function render(){
-  if(!matches.length) return document.getElementById('content').innerHTML='<div class="empty">No matches for this date.<br><br>Tap Debug button for top to see wetin API return.<br><br>Try change date to 2026-11-24 or 2026-11-26</div>';
-  let groups={}; matches.forEach((m,i)=>{let lg=m.league?.name||'Other'; if(!groups[lg]) groups[lg]=[]; groups[lg].push({m,i});});
-  let html=''; Object.keys(groups).forEach(lg=>{
-    let list=groups[lg]; let liveCount=list.filter(x=>isLive(getStatus(x.m))).length;
-    html+=`<div class="league-head"><span>🏆 ${lg}</span><span>${liveCount?'<span class="badge live">● '+liveCount+' LIVE</span>':''} ${list.length} matches</span></div>`;
-    list.forEach(({m,i})=>{let st=getStatus(m); let live=isLive(st); let timeTxt=live?`<b style="color:#ff3b30">LIVE</b>`:(st==='Full Time'||st==='Finished'?`<b>FT</b>`:new Date(m.date).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
-      html+=`<div class="match" onclick="selectMatch(${i})"><div class="time">${timeTxt}<br><span class="badge">${st}</span></div><div class="teams"><div><span>${m.homeTeam?.name||'Home'}</span><span class="score">${fmtScore(m).split(' - ')[0]||''}</span></div><div><span>${m.awayTeam?.name||'Away'}</span><span class="score">${fmtScore(m).split(' - ')[1]||''}</span></div></div><div>›</div></div>`;});
-  });
-  document.getElementById('content').innerHTML=html;
-}
+async function loadLeagues(){try{const r=await fetch(`/api?type=leagues`); const j=await r.json(); let list=Array.isArray(j)?j:(j.data||j.leagues||[]); let flat=[]; list.forEach(x=>{if(x.leagues) x.leagues.forEach(l=>flat.push(l)); else flat.push(x);}); let sel=document.getElementById('league'); let want=['Premier League','La Liga','Serie A','Bundesliga','Ligue 1','Champions League','Europa League','Eredivisie','Primeira Liga','Saudi Pro League','MLS']; let f=flat.filter(l=>want.some(w=>(l.name||'').includes(w))); (f.length?f:flat.slice(0,30)).forEach(l=>{let o=document.createElement('option'); o.value=l.id; o.textContent=l.name; sel.appendChild(o);});}catch(e){}}
+async function loadFixtures(){const d=document.getElementById('date').value||'2026-11-25'; document.getElementById('content').innerHTML='<div class="empty">Loading...</div>'; try{const r=await fetch(`/api?type=fixtures&date=${d}`); const j=await r.json(); matches=Array.isArray(j)?j:(j.data||j.fixtures||j.response||[]); matches.sort((a,b)=>{let la=isLive(getStatus(a))?0:1, lb=isLive(getStatus(b))?0:1; if(la!==lb) return la-lb; return new Date(a.date||0)-new Date(b.date||0);}); render();}catch(e){document.getElementById('content').innerHTML='Error: '+e.message;}}
+function render(){if(!matches.length) return document.getElementById('content').innerHTML='<div class="empty">No matches for this date.<br>Try 2026-11-28</div>'; let groups={}; matches.forEach((m,i)=>{let lg=getLeague(m).name||'Other'; if(!groups[lg]) groups[lg]=[]; groups[lg].push({m,i});}); let html=''; Object.keys(groups).forEach(lg=>{let list=groups[lg]; let liveCount=list.filter(x=>isLive(getStatus(x.m))).length; html+=`<div class="league-head"><span>🏆 ${lg}</span><span>${liveCount?'<span class="badge live">● '+liveCount+' LIVE</span>':''} ${list.length} matches</span></div>`; list.forEach(({m,i})=>{let st=getStatus(m); let live=isLive(st); let timeTxt=live?`<b style="color:#ff3b30">${getMinute(m)||'LIVE'}'</b>`:(st==='FT'||st==='Full Time'?`<b>FT</b>`:getTime(m)); html+=`<div class="match" onclick="selectMatch(${i})"><div class="time">${timeTxt}<br><span class="badge">${st}</span></div><div class="teams"><div><span>${tn(getHome(m))}</span><span class="score">${getScore(m).split(' - ')[0]||''}</span></div><div><span>${tn(getAway(m))}</span><span class="score">${getScore(m).split(' - ')[1]||''}</span></div></div><div>›</div></div>`;});}); document.getElementById('content').innerHTML=html;}
 function selectMatch(i){selected=matches[i];show('detail');}
-async function loadTable(){
-  const lg=document.getElementById('league').value;
-  if(!lg) return document.getElementById('content').innerHTML='<div class="box">Select a league for top, then tap Table again.</div>';
-  document.getElementById('content').innerHTML='<div class="empty">Loading table...</div>';
-  try{
-    const r=await fetch(`/api?type=standings&league=${lg}&season=2026`); const j=await r.json();
-    if(j.message||j.statusCode){document.getElementById('content').innerHTML=`<div class="box"><h3>Table Error</h3><p>${j.message||'Bad request'}</p></div>`; return;}
-    let rows=Array.isArray(j)?j:(j.data||j.standings||[]);
-    if(!rows.length) return document.getElementById('content').innerHTML='<div class="box">No table for this league/season.</div>';
-    let html='<table><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr>';
-    rows.forEach((t,i)=>{let n=t.team?.name||t.name||'Team'; let p=t.played??t.games??'-'; let w=t.won??'-'; let d=t.drawn??'-'; let l=t.lost??'-'; let pts=t.points??'-'; html+=`<tr><td>${i+1}</td><td>${n}</td><td>${p}</td><td>${w}</td><td>${d}</td><td>${l}</td><td><b>${pts}</b></td></tr>`;});
-    document.getElementById('content').innerHTML=html+'</table>';
-  }catch(e){document.getElementById('content').innerHTML='Table error: '+e.message;}
-}
-async function loadDetail(){
-  if(!selected) return document.getElementById('content').innerHTML='<div class="box">Go Live tab, tap a match first.</div>';
-  document.getElementById('content').innerHTML='<div class="empty">Loading detail...</div>';
-  try{
-    const r=await fetch(`/api?type=detail&fixture=${selected.id}`); const j=await r.json();
-    const d=Array.isArray(j)?j[0]:(j.data||j||{});
-    const st=getStatus(selected); const isNS=st==='Not started'||st==='Scheduled';
-    let evs=d.events||[];
-    let evHtml = evs.length ? '<div class="box"><h3>⚽ Events</h3>'+evs.map(e=>`<div class="ev"><b>${e.minute||e.time||''}'</b><span>${e.type||e.event||''} - ${e.player?.name||e.player||''}</span></div>`).join('')+'</div>' : `<div class="box"><h3>⚽ Events</h3><p style="color:#aaa">${isNS?'No events yet - match never start.':'No events recorded.'}</p></div>`;
-    let lineups=d.lineups||d.lineup||null;
-    let lineupHtml = (lineups && lineups.length) ? '<div class="box"><h3>👥 Lineups</h3>'+lineups.map(l=>`<div><b>${l.team?.name||''}</b><br>${(l.players||[]).map(p=>`<div>${p.player?.name||p.name||''}</div>`).join('')}</div>`).join('')+'</div>' : `<div class="box"><h3>👥 Lineups</h3><p style="color:#aaa">${isNS?'Lineup never come out yet.':'No lineup.'}</p></div>`;
-    let stats=d.statistics||[];
-    let statsHtml = (stats.length && stats[0].statistics?.length) ? '<div class="box"><h3>📊 Stats</h3>'+stats[0].statistics.map((s,idx)=>{let hv=parseFloat(s.value)||0, av=parseFloat(stats[1]?.statistics[idx]?.value)||0, tot=hv+av||1; return `<div style="margin:10px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span><b>${hv}</b></span><span>${s.type||s.name}</span><span><b>${av}</b></span></div><div style="display:flex;height:8px;background:#333;border-radius:10px;overflow:hidden;margin-top:4px"><div style="width:${hv/tot*100}%;background:#00c853"></div></div></div>`}).join('')+'</div>' : `<div class="box"><h3>📊 Stats</h3><p style="color:#aaa">No stats yet.</p></div>`;
-    document.getElementById('content').innerHTML=`<div class="detail-head"><div style="color:#aaa">${selected.league?.name||''} • ${getTime(selected)}</div><h2>${selected.homeTeam?.name}</h2><div class="sc">${fmtScore(selected)}</div><h2>${selected.awayTeam?.name}</h2><div><span class="badge">${st}</span></div></div>${evHtml}${lineupHtml}${statsHtml}<button onclick="show('live')" style="background:#222;color:#fff">← Back</button>`;
-  }catch(e){document.getElementById('content').innerHTML='<div class="empty">Detail error: '+e.message+'</div>';}
-}
-loadFixtures();
+async function loadTable(){const lg=document.getElementById('league').value; if(!lg) return document.getElementById('content').innerHTML='<div class="box">Select a league for top, then tap Table again.</div>'; document.getElementById('content').innerHTML='<div class="empty">Loading table...</div>'; try{const r=await fetch(`/api?type=standings&league=${lg}`); const j=await r.json(); let rows=Array.isArray(j)?j:(j.data||j.standings||j.response||[]); if(!rows.length) return document.getElementById('content').innerHTML='<div class="box">No table. Raw: <pre style="white-space:pre-wrap;font-size:11px">'+JSON.stringify(j,null,2).slice(0,2000)+'</pre></div>'; let html='<table><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>Pts</th></tr>'; rows.forEach((t,i)=>{let team=t.team||t; let pos=t.position||t.rank||i+1; html+=`<tr><td>${pos}</td><td>${tn(team)}</td><td>${t.played??'-'}</td><td>${t.won??'-'}</td><td>${t.drawn??'-'}</td><td>${t.lost??'-'}</td><td>${t.goalsFor??'-'}</td><td>${t.goalsAgainst??'-'}</td><td><b>${t.points??'-'}</b></td></tr>`;}); document.getElementById('content').innerHTML=html+'</table>';}catch(e){document.getElementById('content').innerHTML='Table error: '+e.message;}}
+async function loadDetail(){if(!selected) return document.getElementById('content').innerHTML='<div class="box">Go Live tab, tap a match first.</div>'; let m=selected, st=getStatus(m), isNS=st==='Scheduled'; document.getElementById('content').innerHTML='<div class="empty">Loading detail...</div>'; try{const [er,lr,sr]=await Promise.all([fetch(`/api?type=events&fixture=${m.id}`),fetch(`/api?type=lineups&fixture=${m.id}`),fetch(`/api?type=stats&fixture=${m.id}`)]); const ej=await er.json(), lj=await lr.json(), sj=await sr.json(); let evs=Array.isArray(ej)?ej:(ej.data||ej.events||[]); let lineups=Array.isArray(lj)?lj:(lj.data||lj.lineups||[]); let stats=Array.isArray(sj)?sj:(sj.data||sj.stats||[]); let evHtml=evs.length?'<div class="box"><h3>⚽ Events</h3>'+evs.map(e=>`<div class="ev"><b>${e.minute||''}'</b><span>${e.type||''} - ${e.player?.name||e.player||''}</span></div>`).join('')+'</div>':`<div class="box"><h3>⚽ Events</h3><p style="color:#aaa">${isNS?'No events yet - match never start.':'No events.'}</p></div>`; let lineupHtml=lineups.length?'<div class="box"><h3>👥 Lineups</h3>'+lineups.map(l=>`<div><b>${l.team?.name||''}</b><br>${(l.players||l.starters||[]).map(p=>`<div>${p.shirtNumber||''} ${p.player?.name||p.name||''} - ${p.position||''}</div>`).join('')}</div>`).join('')+'</div>':`<div class="box"><h3>👥 Lineups</h3><p style="color:#aaa">${isNS?'Lineup never come out yet.':'No lineup.'}</p></div>`; let statsHtml=stats.length?'<div class="box"><h3>📊 Stats</h3><pre style="white-space:pre-wrap;font-size:12px">'+JSON.stringify(stats,null,2).slice(0,2000)+'</pre></div>':`<div class="box"><h3>📊 Stats</h3><p style="color:#aaa">No stats yet.</p></div>`; document.getElementById('content').innerHTML=`<div class="detail-head"><div style="color:#aaa">${getLeague(m).name||''} • ${getTime(m)}</div><h2>${tn(getHome(m))}</h2><div class="sc">${getScore(m)}</div><h2>${tn(getAway(m))}</h2><div><span class="badge">${st}</span></div></div>${evHtml}${lineupHtml}${statsHtml}<button onclick="show('live')" style="background:#222;color:#fff">← Back</button>`;}catch(e){document.getElementById('content').innerHTML='Detail error: '+e.message;}}
+loadLeagues(); loadFixtures();
 </script></body></html>
