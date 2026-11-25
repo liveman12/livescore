@@ -1,57 +1,60 @@
 <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Livescore</title>
 <style>
-*{box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#0f1115;color:#fff;margin:0;padding:0}
-.header{position:sticky;top:0;background:#0f1115;padding:12px;z-index:10;border-bottom:1px solid #222}
-.header h2{margin:0 0 10px;font-size:22px}.row{display:flex;gap:8px}select,input{flex:1;padding:12px;border-radius:12px;border:0;background:#1e222b;color:#fff;font-size:15px}
-button{width:100%;padding:12px;border-radius:12px;border:0;background:#00c853;color:#000;font-weight:800;font-size:15px;margin-top:8px}
-.tabs{display:flex;gap:8px;padding:12px}.tab{flex:1;text-align:center;padding:12px;background:#222;border-radius:14px;cursor:pointer;font-weight:600}.tab.active{background:#00c853;color:#000}
-.league-head{background:#1a1e27;padding:12px 14px;margin:16px 12px 0;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;font-weight:700;border-bottom:1px solid #333}
-.match{background:#1a1e27;margin:0 12px;padding:13px 14px;border-bottom:1px solid #2a2f3a;display:flex;gap:10px;align-items:center;cursor:pointer}.match:last-child{border-radius:0 0 14px 14px}
-.time{width:68px;font-size:12px;color:#aaa;text-align:center;line-height:1.3}.teams{flex:1}.teams div{display:flex;justify-content:space-between;padding:2px 0;font-size:15px}.score{font-weight:800;color:#00c853;min-width:42px;text-align:center}
-.badge{font-size:11px;background:#333;padding:2px 7px;border-radius:10px}.badge.live{background:#ff3b30;color:#fff}
-.box{background:#1a1e27;padding:14px;border-radius:14px;margin:12px}.empty{padding:20px;text-align:center;color:#aaa}
-.detail-head{text-align:center;padding:20px 12px;background:#1a1e27;margin:12px;border-radius:14px}.detail-head h2{font-size:20px;margin:8px 0}.detail-head .sc{font-size:32px;color:#00c853;font-weight:900}
-.ev{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #333;font-size:14px}.ev b{width:38px;color:#00c853}
-table{width:100%;border-collapse:collapse}th,td{padding:9px;text-align:left;border-bottom:1px solid #333;font-size:14px}
+*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;margin:0;padding:0;font-size:14px}
+.header{position:sticky;top:0;background:#000;color:#fff;padding:10px;z-index:10}
+.header h2{margin:0 0 8px;font-size:20px}.row{display:flex;gap:6px}select,input{flex:1;padding:10px;border-radius:4px;border:1px solid #ccc;background:#fff;color:#000;font-size:14px}
+button{width:100%;padding:10px;border:0;background:#e00000;color:#fff;font-weight:800;font-size:14px;margin-top:6px;cursor:pointer}
+.tabs{display:flex;gap:0;background:#000}.tab{flex:1;text-align:center;padding:11px;background:#222;color:#fff;cursor:pointer;font-weight:700;border-right:1px solid #000}.tab.active{background:#e00000}
+.league-head{background:#000;color:#fff;padding:7px 8px;margin-top:0;display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:13px;text-transform:uppercase;cursor:pointer}
+.league-head span:last-child{font-weight:400;text-transform:none;text-decoration:underline;cursor:pointer}
+.match{display:flex;gap:8px;align-items:center;padding:7px 8px;border-bottom:1px solid #ddd;cursor:pointer;background:#fff}
+.match:hover{background:#f2f2f2}
+.time{width:42px;font-size:13px;color:#000;white-space:nowrap}
+.teams{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.teams b{font-weight:700}
+.score{font-weight:800;min-width:35px;text-align:right;color:#000}
+.live{color:#e00000;font-weight:800}
+.empty{padding:20px;text-align:center;color:#666}
+.box{padding:12px;border-bottom:1px solid #ddd}.box h3{margin:0 0 8px}
+.detail-head{text-align:center;padding:16px;background:#f5f5f5;border-bottom:2px solid #000}.detail-head h2{margin:6px 0}.detail-head .sc{font-size:28px;font-weight:900}
+.ev{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #eee}.ev b{width:38px;color:#e00000}
+table{width:100%;border-collapse:collapse}th{background:#000;color:#fff;padding:8px;text-align:left}td{padding:8px;border-bottom:1px solid #ddd}
 </style></head><body>
-<div class="header"><h2>⚽ Livescore</h2><div class="row"><input type="date" id="date"><select id="league"><option value="">All Leagues</option></select></div><button onclick="loadFixtures()">Load Matches</button></div>
+<div class="header"><h2>⚽ LIVESCORE</h2><div class="row"><input type="date" id="date"><select id="league"><option value="">All Leagues</option></select></div><button onclick="loadFixtures()">Load Matches</button></div>
 <div class="tabs"><div class="tab active" id="t-live" onclick="show('live')">Live / Fixtures</div><div class="tab" id="t-table" onclick="show('table')">Table</div><div class="tab" id="t-detail" onclick="show('detail')">Detail</div></div>
 <div id="content"><div class="empty">Loading...</div></div>
 <script>
-let matches=[], selected=null;
+let matches=[], selected=null, selectedLeagueId=null;
 document.getElementById('date').value='2026-11-25';
 function tn(t){return t?.name||t||'Team';}
-// NEW: Country + League handling for SportAPI
-function getLeagueObj(m){return m.league||m.competition||m.leagueInfo||{};}
-function getCountry(m){
-  let l=getLeagueObj(m);
-  // SportAPI fit put country for: league.country, m.country, m.league_country, m.countryName
-  return l.country?.name||l.country||m.country?.name||m.country||m.countryName||m.league_country||'';
-}
-function getLeagueName(m){return getLeagueObj(m).name||m.leagueName||m.competition_name||'Other';}
-function getLeagueTitle(m){let c=getCountry(m), l=getLeagueName(m); if(c && c!=='Other') return c+' • '+l; return l;}
+function getLeagueObj(m){return m.league||m.competition||{};}
+function getCountry(m){let l=getLeagueObj(m); return l.country?.name||l.country||m.country?.name||m.country||m.countryName||'WORLD';}
+function getLeagueName(m){return getLeagueObj(m).name||m.leagueName||'Other';}
+function getStage(m){return m.stage||m.phase||m.round||'';}
+function getLeagueTitle(m){let c=String(getCountry(m)).toUpperCase(); let l=getLeagueName(m); let s=getStage(m); return c+': '+l+(s?' - '+s:'');}
 function getHome(m){return m.homeTeam||m.home_team||m.home||{};}
 function getAway(m){return m.awayTeam||m.away_team||m.away||{};}
 function getStatus(m){return m.status||'Scheduled';}
 function getMinute(m){return m.minute||m.elapsed||'';}
-function getScore(m){let h=m.homeScore??m.home_score??m.score?.home; let a=m.awayScore??m.away_score??m.score?.away; if(h==null) return '-'; return h+' - '+a;}
+function getScore(m){let h=m.homeScore??m.home_score??m.score?.home; let a=m.awayScore??m.away_score??m.score?.away; if(h==null) return '-'; return h+'-'+a;}
 function isLive(st){return /live|1st|2nd|half/i.test(st);}
 function getTime(m){let d=m.date||m.kickoff||m.startTime||''; if(!d) return ''; try{return new Date(d).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}catch(e){return d;}}
 function show(t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));document.getElementById('t-'+t).classList.add('active');if(t==='live')render();if(t==='table')loadTable();if(t==='detail')loadDetail();}
-async function loadLeagues(){try{const r=await fetch(`/api?type=leagues`); const j=await r.json(); let list=Array.isArray(j)?j:(j.data||j.leagues||[]); let flat=[]; list.forEach(x=>{if(x.leagues) x.leagues.forEach(l=>flat.push({id:l.id,name:l.name,country:x.country?.name||x.name||x.country})); else flat.push(x);}); let sel=document.getElementById('league'); let want=['Premier League','La Liga','Serie A','Bundesliga','Ligue 1','Champions League','Europa League','Eredivisie','Primeira Liga','Saudi Pro League','MLS','Brazilian']; let f=flat.filter(l=>want.some(w=>(l.name||'').includes(w))); (f.length?f:flat.slice(0,30)).forEach(l=>{let o=document.createElement('option'); o.value=l.id; let c=l.country?.name||l.country||''; o.textContent=c?c+' - '+l.name:l.name; sel.appendChild(o);});}catch(e){}}
-async function loadFixtures(){const d=document.getElementById('date').value||'2026-11-25'; document.getElementById('content').innerHTML='<div class="empty">Loading...</div>'; try{const r=await fetch(`/api?type=fixtures&date=${d}`); const j=await r.json(); matches=Array.isArray(j)?j:(j.data||j.fixtures||j.response||[]); matches.sort((a,b)=>{let la=isLive(getStatus(a))?0:1, lb=isLive(getStatus(b))?0:1; if(la!==lb) return la-lb; return new Date(a.date||0)-new Date(b.date||0);}); render();}catch(e){document.getElementById('content').innerHTML='Error: '+e.message;}}
+async function loadLeagues(){try{const r=await fetch(`/api?type=leagues`); const j=await r.json(); let list=Array.isArray(j)?j:(j.data||j.leagues||[]); let flat=[]; list.forEach(x=>{if(x.leagues) x.leagues.forEach(l=>flat.push({id:l.id,name:l.name,country:x.country?.name||x.name||x.country})); else flat.push(x);}); let sel=document.getElementById('league'); flat.forEach(l=>{let o=document.createElement('option'); o.value=l.id; let c=l.country?.name||l.country||''; o.textContent=c?String(c).toUpperCase()+' - '+l.name:l.name; sel.appendChild(o);});}catch(e){}}
+async function loadFixtures(){const d=document.getElementById('date').value||'2026-11-25'; document.getElementById('content').innerHTML='<div class="empty">Loading...</div>'; try{const r=await fetch(`/api?type=fixtures&date=${d}`); const j=await r.json(); matches=Array.isArray(j)?j:(j.data||j.fixtures||j.response||[]); matches.sort((a,b)=>new Date(a.date||0)-new Date(b.date||0)); render();}catch(e){document.getElementById('content').innerHTML='Error: '+e.message;}}
 function render(){
   if(!matches.length) return document.getElementById('content').innerHTML='<div class="empty">No matches for this date.<br>Try 2026-11-28</div>';
   let groups={}; matches.forEach((m,i)=>{let key=getLeagueTitle(m); if(!groups[key]) groups[key]=[]; groups[key].push({m,i});});
   let html=''; Object.keys(groups).sort().forEach(key=>{
-    let list=groups[key]; let liveCount=list.filter(x=>isLive(getStatus(x.m))).length;
-    html+=`<div class="league-head"><span>🏆 ${key}</span><span>${liveCount?'<span class="badge live">● '+liveCount+' LIVE</span>':''} ${list.length} matches</span></div>`;
-    list.forEach(({m,i})=>{let st=getStatus(m); let live=isLive(st); let timeTxt=live?`<b style="color:#ff3b30">${getMinute(m)||'LIVE'}'</b>`:(st==='FT'||st==='Full Time'?`<b>FT</b>`:getTime(m)); html+=`<div class="match" onclick="selectMatch(${i})"><div class="time">${timeTxt}<br><span class="badge">${st}</span></div><div class="teams"><div><span>${tn(getHome(m))}</span><span class="score">${getScore(m).split(' - ')[0]||''}</span></div><div><span>${tn(getAway(m))}</span><span class="score">${getScore(m).split(' - ')[1]||''}</span></div></div><div>›</div></div>`;});
+    let list=groups[key]; let lgId=list[0].m.league?.id||list[0].m.leagueId||'';
+    html+=`<div class="league-head"><span>${key}</span><span onclick="event.stopPropagation();openTable('${lgId}')">Standings</span></div>`;
+    list.forEach(({m,i})=>{let st=getStatus(m); let live=isLive(st); let timeTxt=live?`<span class="live">${getMinute(m)||''}'</span>`:getTime(m); let sc=getScore(m); let scHtml = st==='FT'||st==='Full Time'||st==='Finished' ? `<b>${sc}</b>` : sc; html+=`<div class="match" onclick="selectMatch(${i})"><div class="time">${timeTxt}</div><div class="teams">${tn(getHome(m))} - ${tn(getAway(m))}</div><div class="score">${scHtml}</div></div>`;});
   });
   document.getElementById('content').innerHTML=html;
 }
+function openTable(id){if(!id) return; document.getElementById('league').value=id; show('table');}
 function selectMatch(i){selected=matches[i];show('detail');}
-async function loadTable(){const lg=document.getElementById('league').value; if(!lg) return document.getElementById('content').innerHTML='<div class="box">Select a league for top, then tap Table again.</div>'; document.getElementById('content').innerHTML='<div class="empty">Loading table...</div>'; try{const r=await fetch(`/api?type=standings&league=${lg}`); const j=await r.json(); let rows=Array.isArray(j)?j:(j.data||j.standings||j.response||[]); if(!rows.length) return document.getElementById('content').innerHTML='<div class="box">No table. Raw: <pre style="white-space:pre-wrap;font-size:11px">'+JSON.stringify(j,null,2).slice(0,2000)+'</pre></div>'; let html='<table><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>Pts</th></tr>'; rows.forEach((t,i)=>{let team=t.team||t; let pos=t.position||t.rank||i+1; html+=`<tr><td>${pos}</td><td>${tn(team)}</td><td>${t.played??'-'}</td><td>${t.won??'-'}</td><td>${t.drawn??'-'}</td><td>${t.lost??'-'}</td><td>${t.goalsFor??'-'}</td><td>${t.goalsAgainst??'-'}</td><td><b>${t.points??'-'}</b></td></tr>`;}); document.getElementById('content').innerHTML=html+'</table>';}catch(e){document.getElementById('content').innerHTML='Table error: '+e.message;}}
-async function loadDetail(){if(!selected) return document.getElementById('content').innerHTML='<div class="box">Go Live tab, tap a match first.</div>'; let m=selected, st=getStatus(m), isNS=st==='Scheduled'; document.getElementById('content').innerHTML='<div class="empty">Loading detail...</div>'; try{const [er,lr,sr]=await Promise.all([fetch(`/api?type=events&fixture=${m.id}`),fetch(`/api?type=lineups&fixture=${m.id}`),fetch(`/api?type=stats&fixture=${m.id}`)]); const ej=await er.json(), lj=await lr.json(), sj=await sr.json(); let evs=Array.isArray(ej)?ej:(ej.data||ej.events||[]); let lineups=Array.isArray(lj)?lj:(lj.data||lj.lineups||[]); let stats=Array.isArray(sj)?sj:(sj.data||sj.stats||[]); let evHtml=evs.length?'<div class="box"><h3>⚽ Events</h3>'+evs.map(e=>`<div class="ev"><b>${e.minute||''}'</b><span>${e.type||''} - ${e.player?.name||e.player||''}</span></div>`).join('')+'</div>':`<div class="box"><h3>⚽ Events</h3><p style="color:#aaa">${isNS?'No events yet - match never start.':'No events.'}</p></div>`; let lineupHtml=lineups.length?'<div class="box"><h3>👥 Lineups</h3>'+lineups.map(l=>`<div><b>${l.team?.name||''}</b><br>${(l.players||l.starters||[]).map(p=>`<div>${p.shirtNumber||''} ${p.player?.name||p.name||''} - ${p.position||''}</div>`).join('')}</div>`).join('')+'</div>':`<div class="box"><h3>👥 Lineups</h3><p style="color:#aaa">${isNS?'Lineup never come out yet.':'No lineup.'}</p></div>`; let statsHtml=stats.length?'<div class="box"><h3>📊 Stats</h3><pre style="white-space:pre-wrap;font-size:12px">'+JSON.stringify(stats,null,2).slice(0,2000)+'</pre></div>':`<div class="box"><h3>📊 Stats</h3><p style="color:#aaa">No stats yet.</p></div>`; document.getElementById('content').innerHTML=`<div class="detail-head"><div style="color:#aaa">${getLeagueTitle(m)} • ${getTime(m)}</div><h2>${tn(getHome(m))}</h2><div class="sc">${getScore(m)}</div><h2>${tn(getAway(m))}</h2><div><span class="badge">${st}</span></div></div>${evHtml}${lineupHtml}${statsHtml}<button onclick="show('live')" style="background:#222;color:#fff">← Back</button>`;}catch(e){document.getElementById('content').innerHTML='Detail error: '+e.message;}}
+async function loadTable(){const lg=document.getElementById('league').value; if(!lg) return document.getElementById('content').innerHTML='<div class="box">Select a league for top, then tap Table again.</div>'; document.getElementById('content').innerHTML='<div class="empty">Loading table...</div>'; try{const r=await fetch(`/api?type=standings&league=${lg}`); const j=await r.json(); let rows=Array.isArray(j)?j:(j.data||j.standings||j.response||[]); if(!rows.length) return document.getElementById('content').innerHTML='<div class="box">No table.</div>'; let html='<table><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr>'; rows.forEach((t,i)=>{let team=t.team||t; html+=`<tr><td>${t.position||t.rank||i+1}</td><td>${tn(team)}</td><td>${t.played??'-'}</td><td>${t.won??'-'}</td><td>${t.drawn??'-'}</td><td>${t.lost??'-'}</td><td><b>${t.points??'-'}</b></td></tr>`;}); document.getElementById('content').innerHTML=html+'</table>';}catch(e){document.getElementById('content').innerHTML='Table error: '+e.message;}}
+async function loadDetail(){if(!selected) return document.getElementById('content').innerHTML='<div class="box">Go Live tab, tap a match first.</div>'; let m=selected, st=getStatus(m), isNS=st==='Scheduled'; document.getElementById('content').innerHTML='<div class="empty">Loading detail...</div>'; try{const [er,lr,sr]=await Promise.all([fetch(`/api?type=events&fixture=${m.id}`),fetch(`/api?type=lineups&fixture=${m.id}`),fetch(`/api?type=stats&fixture=${m.id}`)]); const ej=await er.json(), lj=await lr.json(), sj=await sr.json(); let evs=Array.isArray(ej)?ej:(ej.data||ej.events||[]); let lineups=Array.isArray(lj)?lj:(lj.data||lj.lineups||[]); let stats=Array.isArray(sj)?sj:(sj.data||sj.stats||[]); let evHtml=evs.length?'<div class="box"><h3>Events</h3>'+evs.map(e=>`<div class="ev"><b>${e.minute||''}'</b><span>${e.type||''} - ${e.player?.name||e.player||''}</span></div>`).join('')+'</div>':`<div class="box"><h3>Events</h3><p>${isNS?'No events yet.':'No events.'}</p></div>`; let lineupHtml=lineups.length?'<div class="box"><h3>Lineups</h3>'+lineups.map(l=>`<div><b>${l.team?.name||''}</b><br>${(l.players||l.starters||[]).map(p=>`<div>${p.shirtNumber||''} ${p.player?.name||p.name||''}</div>`).join('')}</div>`).join('')+'</div>':`<div class="box"><h3>Lineups</h3><p>No lineup yet.</p></div>`; let statsHtml=stats.length?'<div class="box"><h3>Stats</h3><pre style="white-space:pre-wrap;font-size:12px">'+JSON.stringify(stats,null,2).slice(0,2000)+'</pre></div>':'<div class="box"><h3>Stats</h3><p>No stats yet.</p></div>'; document.getElementById('content').innerHTML=`<div class="detail-head"><div>${getLeagueTitle(m)} • ${getTime(m)}</div><h2>${tn(getHome(m))}</h2><div class="sc">${getScore(m)}</div><h2>${tn(getAway(m))}</h2><div>${st}</div></div>${evHtml}${lineupHtml}${statsHtml}<button onclick="show('live')" style="background:#000">← Back</button>`;}catch(e){document.getElementById('content').innerHTML='Detail error: '+e.message;}}
 loadLeagues(); loadFixtures();
 </script></body></html>
