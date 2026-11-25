@@ -1,0 +1,42 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Livescore</title><style>
+body{font-family:sans-serif;background:#0f1115;color:#fff;margin:0;padding:12px}
+select,input,button{padding:10px;border-radius:10px;border:0;background:#1e222b;color:#fff;margin:4px 0}
+.tabs{display:flex;gap:8px;margin:14px 0}.tab{padding:10px 14px;background:#222;border-radius:20px;cursor:pointer}.tab.active{background:#00c853;color:#000;font-weight:700}
+.card{background:#1a1e27;padding:12px;border-radius:14px;margin:10px 0;cursor:pointer}
+table{width:100%;border-collapse:collapse}th,td{padding:8px;text-align:left;border-bottom:1px solid #333;font-size:14px}
+.box{background:#1a1e27;padding:10px;border-radius:12px;margin:10px 0}
+.badge{background:#00c853;color:#000;padding:2px 8px;border-radius:10px;font-size:12px}
+</style></head><body>
+<h2>⚽ Livescore - Highlightly</h2>
+<div><input type="date" id="date"><button onclick="loadFixtures()">Load Matches</button></div>
+<div class="tabs">
+<div class="tab active" id="t-live" onclick="show('live')">Live / Fixtures</div>
+<div class="tab" id="t-table" onclick="show('table')">Table</div>
+<div class="tab" id="t-detail" onclick="show('detail')">Lineup / Detail</div>
+</div>
+<div id="content">Loading...</div>
+<script>
+let matches=[], selected=null;
+document.getElementById('date').value=new Date().toISOString().slice(0,10);
+function show(t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));document.getElementById('t-'+t).classList.add('active');
+if(t==='live') render(); if(t==='table') loadTable(); if(t==='detail') loadDetail();}
+async function loadFixtures(){const d=document.getElementById('date').value;
+document.getElementById('content').innerHTML='Loading...';
+try{const r=await fetch(`/api?type=fixtures&date=${d}`);const j=await r.json();
+matches=j.data||j.response||j||[];
+if(!Array.isArray(matches)) matches=[];
+render();}catch(e){document.getElementById('content').innerHTML='Error: '+e.message+'<br>Check Cloudflare env HIGHLIGHTLY_API_KEY and Redeploy.'}}
+function getScore(m){if(m.state?.score) return m.state.score; if(m.score) return m.score; return (m.homeScore??'-')+' - '+(m.awayScore??'-');}
+function render(){if(!matches.length) return document.getElementById('content').innerHTML='No matches for this date. Try another date. Raw check: open /api?type=fixtures&date='+document.getElementById('date').value;
+document.getElementById('content').innerHTML=matches.map((m,i)=>{const h=m.homeTeam?.name||m.home?.name||'Home';const a=m.awayTeam?.name||m.away?.name||'Away';return `<div class="card" onclick="selectMatch(${i})"><b>${h} ${getScore(m)} ${a}</b><br><span class="badge">${m.state?.description||m.status||'Scheduled'}</span> ${m.league?.name||''} • ${m.startTime||m.date||''}</div>`}).join('');}
+function selectMatch(i){selected=matches[i];alert('Selected: '+(selected.homeTeam?.name||'match')+' vs '+(selected.awayTeam?.name||'')+'\nNow tap Lineup / Detail tab!');}
+async function loadTable(){document.getElementById('content').innerHTML='Loading table... Use League ID from Highlightly docs. For now showing all matches leagues.';
+const leagues=[...new Set(matches.map(m=>m.league?.name).filter(Boolean))];
+document.getElementById('content').innerHTML='Leagues today:<br>'+leagues.join('<br>')+'<br><br>Go to Highlightly Docs > Leagues to get leagueId, then we add Table for that league.';}
+async function loadDetail(){if(!selected) return document.getElementById('content').innerHTML='Tap a match for Live tab first.';
+const id=selected.id;document.getElementById('content').innerHTML='Loading detail...';
+const r=await fetch(`/api?type=detail&fixture=${id}`);const j=await r.json();
+document.getElementById('content').innerHTML='<div class="box"><h3>Match Detail</h3><pre style="white-space:pre-wrap;font-size:12px">'+JSON.stringify(j,null,2).slice(0,4000)+'</pre></div><p>Send me screenshot of this detail, I go format am to fine Lineup + H2H.</p>';}
+loadFixtures();
+</script></body></html>
