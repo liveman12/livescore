@@ -5,21 +5,12 @@ export async function onRequest(context){
   const league = url.searchParams.get('league') || '';
   const fixture = url.searchParams.get('fixture') || '';
   const season = url.searchParams.get('season') || '2026';
-
   const KEY = context.env.HIGHLIGHTLY_API_KEY;
   const BASE = 'https://soccer.highlightly.net/v1';
-
   let apiUrl = '';
-  if(type==='fixtures'){
-    apiUrl = `${BASE}/matches?date=${date}`;
-    // Highlightly fixtures filter by date only, league filter na frontend
-  } else if(type==='standings'){
-    // Standings NEED leagueId + season
-    apiUrl = `${BASE}/standings?leagueId=${league}&season=${season}`;
-  } else if(type==='detail'){
-    apiUrl = `${BASE}/matches/${fixture}`;
-  }
-
+  if(type==='fixtures') apiUrl = `${BASE}/matches?date=${date}`;
+  else if(type==='standings') apiUrl = `${BASE}/standings?leagueId=${league}&season=${season}`;
+  else if(type==='detail') apiUrl = `${BASE}/matches/${fixture}`;
   try{
     const r = await fetch(apiUrl, { headers: { 'x-rapidapi-key': KEY, 'x-api-key': KEY } });
     const text = await r.text();
