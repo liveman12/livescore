@@ -51,8 +51,15 @@ async function loadTable(){
   const lg=document.getElementById('league').value;
   if(!lg) return document.getElementById('content').innerHTML='<div class="box">Select a league for top, then tap Table again.</div>';
   document.getElementById('content').innerHTML='<div class="empty">Loading table...</div>';
-  const r=await fetch(`/api?type=standings&league=${lg}`); const j=await r.json();
-  document.getElementById('content').innerHTML='<div class="box">Table raw - send screenshot, I go arrange am:<pre style="white-space:pre-wrap;font-size:11px">'+JSON.stringify(j,null,2).slice(0,3000)+'</pre></div>';
+  try{
+    const r=await fetch(`/api?type=standings&league=${lg}&season=2026`); const j=await r.json();
+    if(j.message||j.statusCode){document.getElementById('content').innerHTML=`<div class="box"><h3>Table Error</h3><p>${j.message||'Bad request'}</p><p style="color:#aaa;font-size:13px">League ID <b>${lg}</b> fit no be Highlightly ID. Tell me correct ID from Highlightly Docs > Leagues.</p></div>`; return;}
+    let rows=Array.isArray(j)?j:(j.data||j.standings||[]);
+    if(!rows.length) return document.getElementById('content').innerHTML='<div class="box">No table for this league/season.</div>';
+    let html='<table><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr>';
+    rows.forEach((t,i)=>{let n=t.team?.name||t.name||'Team'; let p=t.played??t.games??'-'; let w=t.won??'-'; let d=t.drawn??'-'; let l=t.lost??'-'; let pts=t.points??'-'; html+=`<tr><td>${i+1}</td><td>${n}</td><td>${p}</td><td>${w}</td><td>${d}</td><td>${l}</td><td><b>${pts}</b></td></tr>`;});
+    document.getElementById('content').innerHTML=html+'</table>';
+  }catch(e){document.getElementById('content').innerHTML='Table error: '+e.message;}
 }
 async function loadDetail(){
   if(!selected) return document.getElementById('content').innerHTML='<div class="box">Go Live tab, tap a match first.</div>';
@@ -62,21 +69,12 @@ async function loadDetail(){
     const d=Array.isArray(j)?j[0]:(j.data||j||{});
     const st=getStatus(selected); const isNS=st==='Not started'||st==='Scheduled';
     let evs=d.events||[];
-    let evHtml = evs.length
-      ? '<div class="box"><h3>⚽ Events</h3>'+evs.map(e=>`<div class="ev"><b>${e.minute||e.time||''}'</b><span>${e.type||e.event||''} - ${e.player?.name||e.player||''} <small style="color:#aaa">(${e.team?.name||''})</small></span></div>`).join('')+'</div>'
-      : `<div class="box"><h3>⚽ Events</h3><p style="color:#aaa">${isNS?'No events yet - match never start.':'No events recorded.'}</p></div>`;
+    let evHtml = evs.length ? '<div class="box"><h3>⚽ Events</h3>'+evs.map(e=>`<div class="ev"><b>${e.minute||e.time||''}'</b><span>${e.type||e.event||''} - ${e.player?.name||e.player||''} <small style="color:#aaa">(${e.team?.name||''})</small></span></div>`).join('')+'</div>' : `<div class="box"><h3>⚽ Events</h3><p style="color:#aaa">${isNS?'No events yet - match never start.':'No events recorded.'}</p></div>`;
     let lineups=d.lineups||d.lineup||null;
-    let lineupHtml = (lineups && lineups.length)
-      ? '<div class="box"><h3>👥 Lineups</h3>'+lineups.map(l=>`<div style="margin-bottom:12px"><b>${l.team?.name||''}</b><br>${(l.players||[]).map(p=>`<div style="font-size:13px;padding:3px 0">${p.shirtNumber||''} ${p.player?.name||p.name||''}</div>`).join('')}</div>`).join('')+'</div>'
-      : `<div class="box"><h3>👥 Lineups</h3><p style="color:#aaa">${isNS?'Lineup never come out yet. E go show 1 hour before kickoff.':'No lineup data for this match.'}</p></div>`;
+    let lineupHtml = (lineups && lineups.length) ? '<div class="box"><h3>👥 Lineups</h3>'+lineups.map(l=>`<div style="margin-bottom:12px"><b>${l.team?.name||''}</b><br>${(l.players||[]).map(p=>`<div style="font-size:13px;padding:3px 0">${p.shirtNumber||''} ${p.player?.name||p.name||''}</div>`).join('')}</div>`).join('')+'</div>' : `<div class="box"><h3>👥 Lineups</h3><p style="color:#aaa">${isNS?'Lineup never come out yet. E go show 1 hour before kickoff.':'No lineup data for this match.'}</p></div>`;
     let stats=d.statistics||[];
-    let statsHtml = (stats.length && stats[0].statistics?.length)
-      ? '<div class="box"><h3>📊 Stats</h3>'+stats[0].statistics.map((s,idx)=>{let hv=parseFloat(s.value)||0, av=parseFloat(stats[1]?.statistics[idx]?.value)||0, tot=hv+av||1; return `<div style="margin:10px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span><b>${hv}</b></span><span>${s.type||s.name}</span><span><b>${av}</b></span></div><div style="display:flex;height:8px;background:#333;border-radius:10px;overflow:hidden;margin-top:4px"><div style="width:${hv/tot*100}%;background:#00c853"></div></div></div>`}).join('')+'</div>'
-      : `<div class="box"><h3>📊 Stats</h3><p style="color:#aaa">${isNS?'Stats go show when match start.':'No stats yet.'}</p></div>`;
-    document.getElementById('content').innerHTML=`
-      <div class="detail-head"><div style="color:#aaa">${selected.league?.name||''} • ${getTime(selected)}</div><h2>${selected.homeTeam?.name}</h2><div class="sc">${fmtScore(selected)}</div><h2>${selected.awayTeam?.name}</h2><div><span class="badge ${isLive(st)?'live':''}">${st}</span></div><p style="color:#aaa;font-size:13px;margin-top:10px">🏟️ ${d.venue?.name||'Venue TBA'}<br>🧑‍⚖️ Referee: ${d.referee?.name||'TBA'}</p></div>
-      ${evHtml}${lineupHtml}${statsHtml}
-      <button onclick="show('live')" style="background:#222;color:#fff">← Back to Matches</button>`;
+    let statsHtml = (stats.length && stats[0].statistics?.length) ? '<div class="box"><h3>📊 Stats</h3>'+stats[0].statistics.map((s,idx)=>{let hv=parseFloat(s.value)||0, av=parseFloat(stats[1]?.statistics[idx]?.value)||0, tot=hv+av||1; return `<div style="margin:10px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span><b>${hv}</b></span><span>${s.type||s.name}</span><span><b>${av}</b></span></div><div style="display:flex;height:8px;background:#333;border-radius:10px;overflow:hidden;margin-top:4px"><div style="width:${hv/tot*100}%;background:#00c853"></div></div></div>`}).join('')+'</div>' : `<div class="box"><h3>📊 Stats</h3><p style="color:#aaa">${isNS?'Stats go show when match start.':'No stats yet.'}</p></div>`;
+    document.getElementById('content').innerHTML=`<div class="detail-head"><div style="color:#aaa">${selected.league?.name||''} • ${getTime(selected)}</div><h2>${selected.homeTeam?.name}</h2><div class="sc">${fmtScore(selected)}</div><h2>${selected.awayTeam?.name}</h2><div><span class="badge ${isLive(st)?'live':''}">${st}</span></div><p style="color:#aaa;font-size:13px;margin-top:10px">🏟️ ${d.venue?.name||'Venue TBA'}<br>🧑‍⚖️ Referee: ${d.referee?.name||'TBA'}</p></div>${evHtml}${lineupHtml}${statsHtml}<button onclick="show('live')" style="background:#222;color:#fff">← Back to Matches</button>`;
   }catch(e){document.getElementById('content').innerHTML='<div class="empty">Detail error: '+e.message+'</div>';}
 }
 loadFixtures();
