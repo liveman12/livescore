@@ -1,60 +1,84 @@
 <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Livescore</title>
-<style>body{font-family:sans-serif;background:#0f1115;color:#fff;margin:0;padding:12px}select,input,button{padding:11px;border-radius:10px;border:0;background:#1e222b;color:#fff;margin:4px 0}button{background:#00c853;color:#000;font-weight:700}.tabs{display:flex;gap:8px;margin:14px 0}.tab{padding:10px 14px;background:#222;border-radius:20px;cursor:pointer}.tab.active{background:#00c853;color:#000;font-weight:700}.card{background:#1a1e27;padding:13px;border-radius:14px;margin:10px 0;cursor:pointer}table{width:100%;border-collapse:collapse}th,td{padding:8px;text-align:left;border-bottom:1px solid #333}.box{background:#1a1e27;padding:12px;border-radius:12px;margin:10px 0}.badge{background:#00c853;color:#000;padding:2px 8px;border-radius:10px;font-size:12px}</style></head><body>
-<h2>⚽ Livescore - Highlightly</h2>
-<div><input type="date" id="date"><select id="league"><option value="">All Leagues</option><option value="33973">Premier League</option><option value="140">La Liga</option><option value="135">Serie A</option><option value="78">Bundesliga</option><option value="61">Ligue 1</option><option value="2">Champions League</option></select><button onclick="loadFixtures()">Load Matches</button></div>
-<div class="tabs"><div class="tab active" id="t-live" onclick="show('live')">Live / Fixtures</div><div class="tab" id="t-table" onclick="show('table')">Table</div><div class="tab" id="t-detail" onclick="show('detail')">Lineup / Detail</div></div>
-<div id="content">Loading...</div>
+<style>
+*{box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#0f1115;color:#fff;margin:0;padding:0}
+.header{position:sticky;top:0;background:#0f1115;padding:12px;z-index:10;border-bottom:1px solid #222}
+.header h2{margin:0 0 10px;font-size:22px}
+.row{display:flex;gap:8px}select,input{flex:1;padding:12px;border-radius:12px;border:0;background:#1e222b;color:#fff;font-size:15px}
+button{width:100%;padding:12px;border-radius:12px;border:0;background:#00c853;color:#000;font-weight:800;font-size:15px;margin-top:8px}
+.tabs{display:flex;gap:8px;padding:12px}.tab{flex:1;text-align:center;padding:12px;background:#222;border-radius:14px;cursor:pointer;font-weight:600}.tab.active{background:#00c853;color:#000}
+.league-head{background:#1a1e27;padding:12px 14px;margin:16px 12px 0;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;font-weight:700;border-bottom:1px solid #333}
+.match{background:#1a1e27;margin:0 12px;padding:13px 14px;border-bottom:1px solid #2a2f3a;display:flex;gap:10px;align-items:center;cursor:pointer}
+.match:last-child{border-radius:0 0 14px 14px}
+.time{width:62px;font-size:12px;color:#aaa;text-align:center;line-height:1.3}.time b{color:#fff;font-size:13px}
+.teams{flex:1}.teams div{display:flex;justify-content:space-between;padding:2px 0;font-size:15px}.score{font-weight:800;color:#00c853;min-width:42px;text-align:center}
+.badge{font-size:11px;background:#333;padding:2px 7px;border-radius:10px}.badge.live{background:#ff3b30;color:#fff}.badge.ft{background:#555}
+.box{background:#1a1e27;padding:12px;border-radius:14px;margin:12px}.empty{padding:20px;text-align:center;color:#aaa}
+table{width:100%;border-collapse:collapse}th,td{padding:9px;text-align:left;border-bottom:1px solid #333;font-size:14px}
+</style></head><body>
+<div class="header"><h2>⚽ Livescore</h2><div class="row"><input type="date" id="date"><select id="league"><option value="">All Leagues</option><option value="33973">Premier League</option><option value="140">La Liga</option><option value="135">Serie A</option><option value="78">Bundesliga</option><option value="61">Ligue 1</option><option value="2">Champions League</option></select></div><button onclick="loadFixtures()">Load Matches</button></div>
+<div class="tabs"><div class="tab active" id="t-live" onclick="show('live')">Live / Fixtures</div><div class="tab" id="t-table" onclick="show('table')">Table</div><div class="tab" id="t-detail" onclick="show('detail')">Detail</div></div>
+<div id="content"><div class="empty">Loading...</div></div>
 <script>
 let matches=[], selected=null, currentTab='live';
 document.getElementById('date').value='2026-11-25';
 function show(t){currentTab=t;document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));document.getElementById('t-'+t).classList.add('active');if(t==='live')render();if(t==='table')loadTable();if(t==='detail')loadDetail();}
-function fmtScore(m){
-  let sc=m.state?.score;
-  if(sc && typeof sc==='object'){
-    if(sc.current!=null) return sc.current;
-    if(sc.fullTime!=null) return sc.fullTime;
-    let h=sc.home??sc.homeTeam??0, a=sc.away??sc.awayTeam??0;
-    return h+' - '+a;
-  }
-  if(sc) return String(sc);
-  return '0 - 0';
-}
-function getTime(m){let d=m.date||m.startTime||''; if(!d) return ''; try{return new Date(d).toLocaleString([], {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}catch(e){return d;}}
+function fmtScore(m){let sc=m.state?.score; if(sc&&typeof sc==='object'){if(sc.current!=null) return sc.current; return (sc.home??0)+' - '+(sc.away??0);} if(sc) return String(sc); return '-';}
+function isLive(st){return /live|1st|2nd|half|extra/i.test(st);}
+function getTime(m){let d=m.date||m.startTime||''; if(!d) return ''; try{let dt=new Date(d); return dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}catch(e){return d;}}
+function getStatus(m){return m.state?.description||'Scheduled';}
 async function loadFixtures(){
   const d=document.getElementById('date').value||'2026-11-25';
-  document.getElementById('content').innerHTML='Loading...';
+  document.getElementById('content').innerHTML='<div class="empty">Loading...</div>';
   try{
     const r=await fetch(`/api?type=fixtures&date=${d}`);
     const j=await r.json();
-    // Highlightly returns ARRAY directly, not j.data
-    if(Array.isArray(j)) matches=j;
-    else matches=j.data||j.matches||j.response||[];
+    matches=Array.isArray(j)?j:(j.data||j.matches||j.response||[]);
+    // ARRANGEMENT: Live first, then by time, then by league
+    matches.sort((a,b)=>{
+      let la=isLive(getStatus(a))?0:1, lb=isLive(getStatus(b))?0:1;
+      if(la!==lb) return la-lb;
+      return new Date(a.date||0)-new Date(b.date||0);
+    });
     render();
-  }catch(e){document.getElementById('content').innerHTML='Error: '+e.message;}
+  }catch(e){document.getElementById('content').innerHTML='<div class="empty">Error: '+e.message+'</div>';}
 }
 function render(){
-  if(!matches.length) return document.getElementById('content').innerHTML='No matches. Try another date.';
-  document.getElementById('content').innerHTML=matches.slice(0,100).map((m,i)=>{
-    const h=m.homeTeam?.name||'Home'; const a=m.awayTeam?.name||'Away';
-    const st=m.state?.description||'Scheduled';
-    const lg=m.league?.name||'';
-    return `<div class="card" onclick="selectMatch(${i})"><div style="display:flex;justify-content:space-between"><span>${lg}</span><span class="badge">${st}</span></div><div style="margin:8px 0;font-size:17px"><b>${h}</b> <span style="color:#00c853">${fmtScore(m)}</span> <b>${a}</b></div><small>${getTime(m)} • Tap for Detail</small></div>`;
-  }).join('');
+  if(!matches.length) return document.getElementById('content').innerHTML='<div class="empty">No matches for this date.<br>Try another date.</div>';
+  // GROUP BY LEAGUE
+  let groups={};
+  matches.forEach((m,i)=>{let lg=m.league?.name||'Other'; if(!groups[lg]) groups[lg]=[]; groups[lg].push({m,i});});
+  let html='';
+  // Live leagues first
+  let leagueNames=Object.keys(groups).sort((a,b)=>{
+    let aLive=groups[a].some(x=>isLive(getStatus(x.m))), bLive=groups[b].some(x=>isLive(getStatus(x.m)));
+    return (bLive?1:0)-(aLive?1:0);
+  });
+  leagueNames.forEach(lg=>{
+    let list=groups[lg];
+    let liveCount=list.filter(x=>isLive(getStatus(x.m))).length;
+    html+=`<div class="league-head"><span>🏆 ${lg}</span><span>${liveCount?'<span class="badge live">● '+liveCount+' LIVE</span>':''} ${list.length} matches</span></div>`;
+    list.forEach(({m,i})=>{
+      let st=getStatus(m); let live=isLive(st);
+      let timeTxt=live?`<b style="color:#ff3b30">${m.state?.clock||'LIVE'}</b>`: (st==='Full Time'||st==='Finished'?`<b>FT</b>`:getTime(m));
+      html+=`<div class="match" onclick="selectMatch(${i})"><div class="time">${timeTxt}<br><span class="badge ${live?'live':''}">${st}</span></div><div class="teams"><div><span>${m.homeTeam?.name||'Home'}</span><span class="score">${fmtScore(m).split(' - ')[0]||''}</span></div><div><span>${m.awayTeam?.name||'Away'}</span><span class="score">${fmtScore(m).split(' - ')[1]||''}</span></div></div><div>›</div></div>`;
+    });
+  });
+  document.getElementById('content').innerHTML=html;
 }
 function selectMatch(i){selected=matches[i];show('detail');}
 async function loadTable(){
   const lg=document.getElementById('league').value;
   if(!lg) return document.getElementById('content').innerHTML='<div class="box">Select a league for top, then tap Table again.</div>';
-  document.getElementById('content').innerHTML='Loading table...';
+  document.getElementById('content').innerHTML='<div class="empty">Loading table...</div>';
   const r=await fetch(`/api?type=standings&league=${lg}`); const j=await r.json();
-  document.getElementById('content').innerHTML='<div class="box"><pre style="white-space:pre-wrap;font-size:11px">'+JSON.stringify(j,null,2).slice(0,4000)+'</pre></div><p>Send me this screenshot, I go format table.</p>';
+  document.getElementById('content').innerHTML='<div class="box"><pre style="white-space:pre-wrap;font-size:11px">'+JSON.stringify(j,null,2).slice(0,4000)+'</pre></div>';
 }
 async function loadDetail(){
-  if(!selected) return document.getElementById('content').innerHTML='Go Live tab, tap a match first.';
-  const id=selected.id; document.getElementById('content').innerHTML='Loading detail...';
-  const r=await fetch(`/api?type=detail&fixture=${id}`); const j=await r.json();
-  const d=Array.isArray(j)?j[0]: (j.data||j);
-  document.getElementById('content').innerHTML=`<div class="box"><h3>${selected.homeTeam?.name} ${fmtScore(selected)} ${selected.awayTeam?.name}</h3><p>${selected.state?.description||''} • ${getTime(selected)}</p></div><div class="box"><h3>Lineup / Events / H2H (raw)</h3><pre style="white-space:pre-wrap;font-size:11px">${JSON.stringify(d,null,2).slice(0,6000)}</pre></div><p>Send me screenshot of this, I go make am fine lineup.</p>`;
+  if(!selected) return document.getElementById('content').innerHTML='<div class="box">Go Live tab, tap a match first.</div>';
+  document.getElementById('content').innerHTML='<div class="empty">Loading detail...</div>';
+  const r=await fetch(`/api?type=detail&fixture=${selected.id}`); const j=await r.json();
+  const d=Array.isArray(j)?j[0]:(j.data||j);
+  document.getElementById('content').innerHTML=`<div class="box"><h3>${selected.homeTeam?.name} ${fmtScore(selected)} ${selected.awayTeam?.name}</h3><p>${getStatus(selected)} • ${getTime(selected)} • ${selected.league?.name||''}</p></div><div class="box"><h3>Lineup / Events</h3><pre style="white-space:pre-wrap;font-size:11px">${JSON.stringify(d,null,2).slice(0,6000)}</pre></div>`;
 }
 loadFixtures();
 </script></body></html>
