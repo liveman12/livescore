@@ -5,14 +5,13 @@
 .header h2{margin:0 0 8px;font-size:20px}.row{display:flex;gap:6px}select,input{flex:1;padding:10px;border-radius:4px;border:1px solid #ccc;background:#fff;color:#000;font-size:14px}
 button{width:100%;padding:10px;border:0;background:#e00000;color:#fff;font-weight:800;font-size:14px;margin-top:6px;cursor:pointer}
 .tabs{display:flex;gap:0;background:#000}.tab{flex:1;text-align:center;padding:11px;background:#222;color:#fff;cursor:pointer;font-weight:700;border-right:1px solid #000}.tab.active{background:#e00000}
-.league-head{background:#000;color:#fff;padding:7px 8px;margin-top:0;display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:13px;text-transform:uppercase;cursor:pointer}
+.league-head{background:#000;color:#fff;padding:7px 8px;display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:13px;text-transform:uppercase;cursor:pointer}
 .league-head span:last-child{font-weight:400;text-transform:none;text-decoration:underline;cursor:pointer}
-.match{display:flex;gap:8px;align-items:center;padding:7px 8px;border-bottom:1px solid #ddd;cursor:pointer;background:#fff}
+.match{display:flex;gap:10px;align-items:center;padding:8px;border-bottom:1px solid #ddd;cursor:pointer;background:#fff}
 .match:hover{background:#f2f2f2}
-.time{width:42px;font-size:13px;color:#000;white-space:nowrap}
+.time{width:72px;flex-shrink:0;font-size:13px}
 .teams{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.teams b{font-weight:700}
-.score{font-weight:800;min-width:35px;text-align:right;color:#000}
+.score{font-weight:800;min-width:35px;text-align:right}
 .live{color:#e00000;font-weight:800}
 .empty{padding:20px;text-align:center;color:#666}
 .box{padding:12px;border-bottom:1px solid #ddd}.box h3{margin:0 0 8px}
@@ -20,18 +19,18 @@ button{width:100%;padding:10px;border:0;background:#e00000;color:#fff;font-weigh
 .ev{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #eee}.ev b{width:38px;color:#e00000}
 table{width:100%;border-collapse:collapse}th{background:#000;color:#fff;padding:8px;text-align:left}td{padding:8px;border-bottom:1px solid #ddd}
 </style></head><body>
-<div class="header"><h2>⚽ LIVESCORE</h2><div class="row"><input type="date" id="date"><select id="league"><option value="">All Leagues</option></select></div><button onclick="loadFixtures()">Load Matches</button></div>
+<div class="header"><h2>⚽ LIVESCORE</h2><div class="row"><input type="date" id="date"><select id="league"></select></div><button onclick="loadFixtures()">Load Matches</button></div>
 <div class="tabs"><div class="tab active" id="t-live" onclick="show('live')">Live / Fixtures</div><div class="tab" id="t-table" onclick="show('table')">Table</div><div class="tab" id="t-detail" onclick="show('detail')">Detail</div></div>
 <div id="content"><div class="empty">Loading...</div></div>
 <script>
-let matches=[], selected=null, selectedLeagueId=null;
+let matches=[], selected=null;
 document.getElementById('date').value='2026-11-25';
 function tn(t){return t?.name||t||'Team';}
 function getLeagueObj(m){return m.league||m.competition||{};}
-function getCountry(m){let l=getLeagueObj(m); return l.country?.name||l.country||m.country?.name||m.country||m.countryName||'WORLD';}
-function getLeagueName(m){return getLeagueObj(m).name||m.leagueName||'Other';}
+function getCountry(m){let l=getLeagueObj(m); return l.country?.name||l.country||m.country?.name||m.country||m.countryName||'';}
+function getLeagueName(m){return getLeagueObj(m).name||m.leagueName||'';}
 function getStage(m){return m.stage||m.phase||m.round||'';}
-function getLeagueTitle(m){let c=String(getCountry(m)).toUpperCase(); let l=getLeagueName(m); let s=getStage(m); return c+': '+l+(s?' - '+s:'');}
+function getLeagueTitle(m){let c=String(getCountry(m)).toUpperCase(); let l=getLeagueName(m); let s=getStage(m); if(!l) return ''; return (c?c+': ':'')+l+(s?' - '+s:'');}
 function getHome(m){return m.homeTeam||m.home_team||m.home||{};}
 function getAway(m){return m.awayTeam||m.away_team||m.away||{};}
 function getStatus(m){return m.status||'Scheduled';}
@@ -40,21 +39,41 @@ function getScore(m){let h=m.homeScore??m.home_score??m.score?.home; let a=m.awa
 function isLive(st){return /live|1st|2nd|half/i.test(st);}
 function getTime(m){let d=m.date||m.kickoff||m.startTime||''; if(!d) return ''; try{return new Date(d).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}catch(e){return d;}}
 function show(t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));document.getElementById('t-'+t).classList.add('active');if(t==='live')render();if(t==='table')loadTable();if(t==='detail')loadDetail();}
-async function loadLeagues(){try{const r=await fetch(`/api?type=leagues`); const j=await r.json(); let list=Array.isArray(j)?j:(j.data||j.leagues||[]); let flat=[]; list.forEach(x=>{if(x.leagues) x.leagues.forEach(l=>flat.push({id:l.id,name:l.name,country:x.country?.name||x.name||x.country})); else flat.push(x);}); let sel=document.getElementById('league'); flat.forEach(l=>{let o=document.createElement('option'); o.value=l.id; let c=l.country?.name||l.country||''; o.textContent=c?String(c).toUpperCase()+' - '+l.name:l.name; sel.appendChild(o);});}catch(e){}}
-async function loadFixtures(){const d=document.getElementById('date').value||'2026-11-25'; document.getElementById('content').innerHTML='<div class="empty">Loading...</div>'; try{const r=await fetch(`/api?type=fixtures&date=${d}`); const j=await r.json(); matches=Array.isArray(j)?j:(j.data||j.fixtures||j.response||[]); matches.sort((a,b)=>new Date(a.date||0)-new Date(b.date||0)); render();}catch(e){document.getElementById('content').innerHTML='Error: '+e.message;}}
+async function loadLeagues(){
+  try{
+    const r=await fetch(`/api?type=leagues`); const j=await r.json();
+    let list=Array.isArray(j)?j:(j.data||j.leagues||[]);
+    let flat=[]; list.forEach(x=>{if(x.leagues) x.leagues.forEach(l=>flat.push({id:l.id,name:l.name,country:x.country?.name||x.name||x.country})); else flat.push(x);});
+    let sel=document.getElementById('league');
+    // NO "All Leagues" again - only real leagues
+    flat.forEach(l=>{let o=document.createElement('option'); o.value=l.id; let c=l.country?.name||l.country||''; o.textContent=c?String(c).toUpperCase()+' - '+l.name:l.name; sel.appendChild(o);});
+  }catch(e){}
+}
+async function loadFixtures(){
+  const d=document.getElementById('date').value||'2026-11-25';
+  document.getElementById('content').innerHTML='<div class="empty">Loading...</div>';
+  try{
+    const r=await fetch(`/api?type=fixtures&date=${d}`); const j=await r.json();
+    let all=Array.isArray(j)?j:(j.data||j.fixtures||j.response||[]);
+    // REMOVE "OTHER" - hide matches wey no get league name
+    matches=all.filter(m=>getLeagueName(m));
+    // If user select league for top, show only that league
+    let selLg=document.getElementById('league').value;
+    // No filter if dropdown never load yet - show all real leagues
+    matches.sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+    render();
+  }catch(e){document.getElementById('content').innerHTML='Error: '+e.message;}
+}
 function render(){
   if(!matches.length) return document.getElementById('content').innerHTML='<div class="empty">No matches for this date.<br>Try 2026-11-28</div>';
-  let groups={}; matches.forEach((m,i)=>{let key=getLeagueTitle(m); if(!groups[key]) groups[key]=[]; groups[key].push({m,i});});
+  let groups={}; matches.forEach((m,i)=>{let key=getLeagueTitle(m); if(!key) return; if(!groups[key]) groups[key]=[]; groups[key].push({m,i});});
   let html=''; Object.keys(groups).sort().forEach(key=>{
-    let list=groups[key]; let lgId=list[0].m.league?.id||list[0].m.leagueId||'';
+    let list=groups[key]; let lgId=list[0].m.league?.id||'';
     html+=`<div class="league-head"><span>${key}</span><span onclick="event.stopPropagation();openTable('${lgId}')">Standings</span></div>`;
-    list.forEach(({m,i})=>{let st=getStatus(m); let live=isLive(st); let timeTxt=live?`<span class="live">${getMinute(m)||''}'</span>`:getTime(m); let sc=getScore(m); let scHtml = st==='FT'||st==='Full Time'||st==='Finished' ? `<b>${sc}</b>` : sc; html+=`<div class="match" onclick="selectMatch(${i})"><div class="time">${timeTxt}</div><div class="teams">${tn(getHome(m))} - ${tn(getAway(m))}</div><div class="score">${scHtml}</div></div>`;});
+    list.forEach(({m,i})=>{let st=getStatus(m); let live=isLive(st); let timeTxt=live?`<span class="live">${getMinute(m)||''}'</span>`:getTime(m); html+=`<div class="match" onclick="selectMatch(${i})"><div class="time">${timeTxt}</div><div class="teams">${tn(getHome(m))} - ${tn(getAway(m))}</div><div class="score"><b>${getScore(m)}</b></div></div>`;});
   });
   document.getElementById('content').innerHTML=html;
 }
 function openTable(id){if(!id) return; document.getElementById('league').value=id; show('table');}
 function selectMatch(i){selected=matches[i];show('detail');}
-async function loadTable(){const lg=document.getElementById('league').value; if(!lg) return document.getElementById('content').innerHTML='<div class="box">Select a league for top, then tap Table again.</div>'; document.getElementById('content').innerHTML='<div class="empty">Loading table...</div>'; try{const r=await fetch(`/api?type=standings&league=${lg}`); const j=await r.json(); let rows=Array.isArray(j)?j:(j.data||j.standings||j.response||[]); if(!rows.length) return document.getElementById('content').innerHTML='<div class="box">No table.</div>'; let html='<table><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr>'; rows.forEach((t,i)=>{let team=t.team||t; html+=`<tr><td>${t.position||t.rank||i+1}</td><td>${tn(team)}</td><td>${t.played??'-'}</td><td>${t.won??'-'}</td><td>${t.drawn??'-'}</td><td>${t.lost??'-'}</td><td><b>${t.points??'-'}</b></td></tr>`;}); document.getElementById('content').innerHTML=html+'</table>';}catch(e){document.getElementById('content').innerHTML='Table error: '+e.message;}}
-async function loadDetail(){if(!selected) return document.getElementById('content').innerHTML='<div class="box">Go Live tab, tap a match first.</div>'; let m=selected, st=getStatus(m), isNS=st==='Scheduled'; document.getElementById('content').innerHTML='<div class="empty">Loading detail...</div>'; try{const [er,lr,sr]=await Promise.all([fetch(`/api?type=events&fixture=${m.id}`),fetch(`/api?type=lineups&fixture=${m.id}`),fetch(`/api?type=stats&fixture=${m.id}`)]); const ej=await er.json(), lj=await lr.json(), sj=await sr.json(); let evs=Array.isArray(ej)?ej:(ej.data||ej.events||[]); let lineups=Array.isArray(lj)?lj:(lj.data||lj.lineups||[]); let stats=Array.isArray(sj)?sj:(sj.data||sj.stats||[]); let evHtml=evs.length?'<div class="box"><h3>Events</h3>'+evs.map(e=>`<div class="ev"><b>${e.minute||''}'</b><span>${e.type||''} - ${e.player?.name||e.player||''}</span></div>`).join('')+'</div>':`<div class="box"><h3>Events</h3><p>${isNS?'No events yet.':'No events.'}</p></div>`; let lineupHtml=lineups.length?'<div class="box"><h3>Lineups</h3>'+lineups.map(l=>`<div><b>${l.team?.name||''}</b><br>${(l.players||l.starters||[]).map(p=>`<div>${p.shirtNumber||''} ${p.player?.name||p.name||''}</div>`).join('')}</div>`).join('')+'</div>':`<div class="box"><h3>Lineups</h3><p>No lineup yet.</p></div>`; let statsHtml=stats.length?'<div class="box"><h3>Stats</h3><pre style="white-space:pre-wrap;font-size:12px">'+JSON.stringify(stats,null,2).slice(0,2000)+'</pre></div>':'<div class="box"><h3>Stats</h3><p>No stats yet.</p></div>'; document.getElementById('content').innerHTML=`<div class="detail-head"><div>${getLeagueTitle(m)} • ${getTime(m)}</div><h2>${tn(getHome(m))}</h2><div class="sc">${getScore(m)}</div><h2>${tn(getAway(m))}</h2><div>${st}</div></div>${evHtml}${lineupHtml}${statsHtml}<button onclick="show('live')" style="background:#000">← Back</button>`;}catch(e){document.getElementById('content').innerHTML='Detail error: '+e.message;}}
-loadLeagues(); loadFixtures();
-</script></body></html>
+async function loadTable(){const lg=document.getElementById('league').value; if(!lg) return document.getElementById('content').innerHTML='<div class="box">Select a league for top, then tap Table again.</div>'; document.getElementById('content').innerHTML='<div class="empty">Loading table...</div>'; try{const r=await fetch(`/api?type=standings&league=${lg}`); const j=await r.json(); let rows=Array.isArray(j)?j:(j.data||j.standings||j.response||[]); if(!rows.length) return document.getElementById('content').innerHTML='<div class="box">No table.</div>'; let html='<table><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr>'; rows.forEach((t,i)=>{let team=t.team||t; html+=`<tr><td>${t.position||t.rank||i+1}</td><td>${tn
