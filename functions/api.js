@@ -4,15 +4,18 @@ export async function onRequest(context){
   const date = url.searchParams.get('date') || new Date().toISOString().slice(0,10);
   const league = url.searchParams.get('league') || '';
   const fixture = url.searchParams.get('fixture') || '';
-  const season = url.searchParams.get('season') || '2026';
-  const KEY = context.env.HIGHLIGHTLY_API_KEY;
-  const BASE = 'https://soccer.highlightly.net/v1';
+  const KEY = context.env.SPORTAPI_KEY;
+  const BASE = 'https://sportapi.ai/api';
   let apiUrl = '';
-  if(type==='fixtures') apiUrl = `${BASE}/matches?date=${date}`;
-  else if(type==='standings') apiUrl = `${BASE}/standings?leagueId=${league}&season=${season}`;
-  else if(type==='detail') apiUrl = `${BASE}/matches/${fixture}`;
+  if(type==='fixtures') apiUrl = `${BASE}/fixtures/date/${date}`;
+  else if(type==='standings') apiUrl = `${BASE}/standings/${league}`;
+  else if(type==='detail') apiUrl = `${BASE}/fixtures/${fixture}`;
+  else if(type==='events') apiUrl = `${BASE}/fixtures/${fixture}/events`;
+  else if(type==='lineups') apiUrl = `${BASE}/fixtures/${fixture}/lineups`;
+  else if(type==='stats') apiUrl = `${BASE}/fixtures/${fixture}/stats`;
+  else if(type==='leagues') apiUrl = `${BASE}/leagues`;
   try{
-    const r = await fetch(apiUrl, { headers: { 'x-rapidapi-key': KEY, 'x-api-key': KEY } });
+    const r = await fetch(apiUrl, { headers: { 'X-Api-Key': KEY } });
     const text = await r.text();
     return new Response(text, { status: r.status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
   }catch(e){
