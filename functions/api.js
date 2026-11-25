@@ -1,15 +1,30 @@
-export async function onRequest(context) {
+export async function onRequest(context){
   const url = new URL(context.request.url);
   const type = url.searchParams.get('type') || 'fixtures';
   const date = url.searchParams.get('date') || new Date().toISOString().slice(0,10);
-  const leagueId = url.searchParams.get('league') || '33973';
+  const league = url.searchParams.get('league') || '';
   const fixture = url.searchParams.get('fixture') || '';
-  const headers = { 'x-rapidapi-key': context.env.HIGHLIGHTLY_API_KEY };
+  const season = url.searchParams.get('season') || '2026';
+
+  const KEY = context.env.HIGHLIGHTLY_API_KEY;
+  const BASE = 'https://soccer.highlightly.net/v1';
+
   let apiUrl = '';
-  if (type === 'standings') apiUrl = `https://soccer.highlightly.net/standings?leagueId=${leagueId}`;
-  else if (type === 'detail') apiUrl = `https://soccer.highlightly.net/matches/${fixture}`;
-  else apiUrl = `https://soccer.highlightly.net/matches?date=${date}`;
-  const res = await fetch(apiUrl, { headers });
-  const data = await res.text();
-  return new Response(data, { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+  if(type==='fixtures'){
+    apiUrl = `${BASE}/matches?date=${date}`;
+    // Highlightly fixtures filter by date only, league filter na frontend
+  } else if(type==='standings'){
+    // Standings NEED leagueId + season
+    apiUrl = `${BASE}/standings?leagueId=${league}&season=${season}`;
+  } else if(type==='detail'){
+    apiUrl = `${BASE}/matches/${fixture}`;
+  }
+
+  try{
+    const r = await fetch(apiUrl, { headers: { 'x-rapidapi-key': KEY, 'x-api-key': KEY } });
+    const text = await r.text();
+    return new Response(text, { status: r.status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+  }catch(e){
+    return new Response(JSON.stringify({error: e.message}), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
 }
